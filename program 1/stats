@@ -1,0 +1,159 @@
+#!/bin/bash
+
+# check if first argument is present
+if [[ $1 == "" ]]
+then
+	echo "\""$0" {=rows|-cols} [file]\"">&2
+	exit 1;
+fi
+
+# check if second argument  being file present if not assume std in
+if [[ $2 == "" ]]
+then
+	  while read line
+    do
+        arr=("${arr[@]}" $line)
+    done
+   
+    arr=($(printf '%s\n' "${arr[@]}"|sort -g))
+    avg=0;
+    med=0;
+    med_pos=0;
+
+    for (( i=0;i<${#arr[@]};i++ ));
+    do
+        let "avg+=${arr[$i]}"
+    done
+
+    numvals=${#arr[@]}
+    let "avg=$avg+($numvals/2)"
+    
+    #numvals=${#arr[@]}
+    let "avg/=$numvals"
+    let "med_pos=($numvals/2)"
+
+    if [ $((numvals%2)) -eq 0 ]; then
+        let "med_pos--"
+        if [[ "arr[$med_pos]" < "arr[$med_pos+1]" ]]; then
+            let "med_pos++"
+        fi
+    fi
+
+    med=${arr[$med_pos]}
+    echo "Average: " $avg
+    echo "Median: " $med
+fi
+
+# wow too many args
+if [[ $3 != "" ]]
+then
+	echo "\""$0" {=rows|-cols} [file]\"">&2
+	exit 1;
+fi
+
+# check to see if the user wants to calculate stats of rows
+if [[ $1 == *"-r"* ]]
+then
+	echo "Average  Median"
+	while read myLine
+	do
+		i=0	
+		# take each line and put it into an array and sort that array
+		array=( $(
+			for num in $myLine
+			do
+				echo "$num"
+			done | sort) )
+		size=${#array[*]}
+	
+		sum=0
+		avg=0
+		i=0
+			
+		# calculate the sum of each line and find average
+		for num in $myLine
+		do
+			((i = i + 1))
+			((sum = sum + num))
+			((avg = sum / i))
+		done
+	
+		((mid_element = size / 2))
+		((mod_length = size % 2))
+	
+		median=${array[$mid_element]}
+	
+		echo "$avg        $median"
+	done <$2 
+
+# check to see if the user wants to calculate stats of columns
+elif [[ $1 == *"-c"* ]]
+then
+	a=($(wc $2))
+    row_count=${a[0]}
+    num_count=${a[1]}
+    
+		if [[ $row_count != 0 ]]
+		then
+			let "col_count=($num_count/$row_count)"
+
+			avgarr=
+			medarr=
+			
+			#  read numbers by column from original file and store in tmp files
+			while read line
+			do
+					arr=($line)
+					for (( i=0;i<${#arr[@]};i++ ));
+					do
+							echo ${arr[$i]} >> $$.$i.tmp
+					done
+			done<$2
+
+			for (( i=0;i<$col_count;i++ ))
+			do
+					IFS=$'\n' read -d '' -r -a arr < $$.$i.tmp
+					rm $$.$i.tmp
+
+					avg=0;
+					med=0;
+					med_pos=0;
+					
+					for (( j=0;j<${#arr[@]};j++ ));
+					do
+							let "avg+=${arr[$j]}"
+					done
+
+					rows=${#arr[@]}
+					let "avg=$avg+($rows/2)"        
+
+					let "avg/=$rows"
+					let "med_pos=($rows/2)"
+					sorted=($(printf '%s\n' "${arr[@]}"|sort -g))
+
+					if [ $((rows%2)) -eq 0 ]; then
+							let "med_pos--"
+							if [[ "arr[$med_pos]" < "arr[$med_pos+1]" ]]; then
+									let "med_pos++"
+							fi
+					fi
+
+					med=${arr[$med_pos]}
+					avg_arr[$i]=$avg
+					med_arr[$i]=$med
+			done
+		fi
+		
+    echo "Averages:"
+    echo ${avg_arr[@]}
+    echo "Medians:"
+    echo ${med_arr[@]}
+else
+	echo "\""$0" {-rows|-cols} [file]\"">&2
+	exit 1;
+fi
+
+trap "rm -f *.tmp" EXIT
+
+
+
